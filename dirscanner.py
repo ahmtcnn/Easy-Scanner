@@ -8,25 +8,32 @@ from queue import Queue
 import threading
 from requests.exceptions import Timeout
 #from proxy_scanner import *
-
-import threading
 from queue import Queue
 import requests
-import re
 import string
 import random
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+import time
+import os
+from datetime import datetime
 
 class ProxyScanner():
 	def __init__(self):
 		self.all_proxies = []
 		self.working_proxies = []
-		self.print_lock = threading.Lock()
-		self.q = Queue()
-		self.url = 'https://httpbin.org/ip'
-		self.start_threads()
-		self.queue_proxies()
-		self.q.join()
-		print("Proxy scan stopped")
+		if not self.read_file():
+			self.print_lock = threading.Lock()
+			self.q = Queue()
+			self.url = 'https://httpbin.org/ip'
+			self.start_threads()
+			self.queue_proxies()
+			self.q.join()
+			print("Proxy scan stopped")
+			self.write_file()
+		else:
+			self.read_file()
+			print("Updated Proxy File Detected. Using Proxy File.")
 
 
 	def get_proxies(self):
@@ -34,10 +41,10 @@ class ProxyScanner():
 	    response = requests.get(url)
 
 	    regex_ip = r'[0-9]+(?:\.[0-9]+){3}</td><td>[0-9]+'
-	    proxy_ips = re.findall(regex_ip,response.content)
+	    proxy_ips = re.findall(regex_ip,response.text)
 
 	    for i in proxy_ips:
-	        i = string.replace(i,"</td><td>",":")
+	        i = i.replace("</td><td>",":")
 	        self.all_proxies.append(i)
 	    print(str(len(self.all_proxies)) + " different proxy")
 	    return self.all_proxies
@@ -60,14 +67,12 @@ class ProxyScanner():
 			with self.print_lock:
 				print(response.json())
 			self.working_proxies.append(proxy)
-
 		except:
-		    with self.print_lock:
-		    	print("Proxy test failed!")
+			pass
 
 
 	def start_threads(self):
-		for _ in range(200):
+		for _ in range(120):
 			t = threading.Thread(target=self.threader)
 			t.daemon= True
 			t.start()
@@ -75,26 +80,56 @@ class ProxyScanner():
 	def return_proxies(self):
 		return self.working_proxies
 
+	def write_file(self):
+		now = datetime. now()
+		time = str(now.day) +" "+ str(now.month) + " " + str(now.year)
+		with open("proxy_list.txt","w+") as fp:
+			fp.write(time+"\n")
+			for proxy in self.working_proxies:
+				fp.write(proxy+"\n")
+
+	def read_file(self):
+		now = datetime. now()
+		time = str(now.day) +" "+ str(now.month) + " " + str(now.year)
+		if(os.path.exists('proxy_list.txt')):
+			with open("proxy_list.txt","r+") as fp:
+				date = fp.readline()
+				if time in date:
+					for line in fp:
+						self.working_proxies.append(str(line.rstrip("\n")))
+					return True
+				else:
+					return False
+		return False
+
 class DirScanner:
 	def __init__(self,url,proxy):
+		self.startTime = time.time()
 		self.OKGREEN = '\033[92m'
 		self.ENDC = '\033[0m'
 		self.WARNING = '\033[91m'
 		self.TIMEOUT = '\033[95m'
 		self.proxy_url ='http://free-proxy-list.net/'
+		self.session = requests.Session()
+		self.retry = Retry(connect=2, backoff_factor=0.5)
+		self.adapter = HTTPAdapter(max_retries=self.retry)
+		self.session.mount('http://', self.adapter)
+		self.session.mount('https://', self.adapter)
+		self.proxy_lock = threading.Lock()
 		self.proxies = proxy
 		self.headers = requests.utils.default_headers()
 		self.user_agents = []
 		self.read_user_agent_file()
-		self.retry_lock = threading.Lock()
+		self.print_lock = threading.Lock()
 		self.proxies = proxy
 		self.url = url
-		self.print_lock = threading.Lock()
+		
 		self.q = Queue()
 		self.queue_dirs()
 		self.start_threads()
 		self.q.join()
 		print("Directory scan Completed")
+		print('Time taken:', time.time() - self.startTime)
 
 
 	def queue_dirs(self):
@@ -109,34 +144,25 @@ class DirScanner:
 	def test(self,word):
 		url = self.url + "/" + word
 		try:
-			self.test_url(url,(5,10))
-
-		except Timeout:
-			try:
-				self.test(url,(10,15))
-			except Timeout:
-				with self.print_lock:
-					print (self.TIMEOUT + url + " : "+ str(408) +  " Timeout!" +self.ENDC )
-			except:
-				with self.print_lock:
-					print("except")
+			self.test_url(url,(3,5))
 		except:
-			with self.print_lock:
-				print("except")
+			print("except")
+
 
 	def test_url(self,url,timeout):
 		proxy = self.get_working_proxy(None)
+
 		agent = random.choice(self.user_agents)
 
 		header = self.headers.update(agent)
-			
-		response = requests.get(url,proxies={"http": proxy, "https": proxy},headers=agent,timeout = (6,10))
-		if response.status_code != 404:
+		
+		response = self.session.get(url,proxies={"http": proxy, "https": proxy},headers=agent,timeout=timeout)
+		if response.status_code == 200:
 			with self.print_lock:
-				print (self.OKGREEN + url + " : "+ str(response.status_code) + self.ENDC)
+				print (self.OKGREEN + url + " : "+ str(response.status_code) + self.ENDC + self.TIMEOUT + "  " +"(used proxy "+ proxy+")" + self.ENDC)
 		else:
 			with self.print_lock:
-				print (self.WARNING + url + " : "+ str(response.status_code) + self.ENDC)		
+				print (self.WARNING + url + " : "+ str(response.status_code) + self.ENDC + self.TIMEOUT + "  " +"(used proxy "+ proxy+")" + self.ENDC)		
 
 
 	def threader(self):
@@ -147,7 +173,7 @@ class DirScanner:
 			self.q.task_done()	
 
 	def start_threads(self):
-		for _ in range(200):
+		for _ in range(5):
 			t = threading.Thread(target = self.threader)
 			t.daemon = True
 			t.start()
@@ -165,7 +191,7 @@ class DirScanner:
 		try:
 			response = requests.get(self.proxy_url,proxies={"http": proxy, "https": proxy},timeout=5)
 			if response.status_code == 200:
-				return proxy
+				return proxy.rstrip("\n")
 			else:
 				return self.get_working_proxy(None)
 		except:
@@ -180,5 +206,5 @@ class DirScanner:
 
 proxy_scanner = ProxyScanner()
 proxies = proxy_scanner.return_proxies()
-scanner = DirScanner("http://ahmetcankaraagacli.com",proxies)
+scanner = DirScanner("http://bekchy.com",proxies)
 
