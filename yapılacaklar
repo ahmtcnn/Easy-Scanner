@@ -1,0 +1,6 @@
+useragent ile taramayı sağlamak
+proxy leri devreye sokmak
+request ve response headerları göstermek, bunların analizini yapmak
+responselardan formları çekmek
+session nedir ne işimize yarar ? authentication ayarlamak.
+subdomain scanner ı threadli hale getir çok hızlı olması lazım
