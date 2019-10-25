@@ -115,12 +115,12 @@ class DirScanner:
 		self.adapter = HTTPAdapter(max_retries=self.retry)
 		self.session.mount('http://', self.adapter)
 		self.session.mount('https://', self.adapter)
-		self.proxy_lock = threading.Lock()
+		self.print_lock = threading.Lock()
 		self.proxies = proxy
 		self.headers = requests.utils.default_headers()
 		self.user_agents = []
 		self.read_user_agent_file()
-		self.print_lock = threading.Lock()
+	
 		self.proxies = proxy
 		self.url = url
 		
@@ -146,14 +146,12 @@ class DirScanner:
 		try:
 			self.test_url(url,(3,5))
 		except:
-			print("except")
-
+			#print("except")
+			pass
 
 	def test_url(self,url,timeout):
 		proxy = self.get_working_proxy(None)
-
 		agent = random.choice(self.user_agents)
-
 		header = self.headers.update(agent)
 		
 		response = self.session.get(url,proxies={"http": proxy, "https": proxy},headers=agent,timeout=timeout)
