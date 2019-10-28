@@ -6,6 +6,7 @@ from urllib import parse
 import re
 
 ##login olması durumu eklenecek
+#stack overflow oluyor dolayısıyla sadece form içeriklerini alabiliriz.
 class Crawler():
 	def __init__(self,url):
 		self.url = url

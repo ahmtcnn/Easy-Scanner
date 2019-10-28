@@ -91,8 +91,8 @@ class ProxyScanner():
 	def read_file(self):
 		now = datetime. now()
 		time = str(now.day) +" "+ str(now.month) + " " + str(now.year)
-		if(os.path.exists('proxy_list.txt')):
-			with open("proxy_list.txt","r+") as fp:
+		if(os.path.exists('data/proxy_list.txt')):
+			with open("data/proxy_list.txt","r+") as fp:
 				date = fp.readline()
 				if time in date:
 					for line in fp:
@@ -146,7 +146,6 @@ class DirScanner:
 		try:
 			self.test_url(url,(3,5))
 		except:
-			#print("except")
 			pass
 
 	def test_url(self,url,timeout):
@@ -177,7 +176,7 @@ class DirScanner:
 			t.start()
 
 	def read_user_agent_file(self):
-		with open("user_agents.dat","r+") as fp:
+		with open("data/user_agents.dat","r+") as fp:
 			for agent in fp:
 				agent=agent.rstrip("\n")
 				self.user_agents.append({"User-agent":agent})

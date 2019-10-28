@@ -69,7 +69,7 @@ class ProxyScanner():
 	def write_file(self):
 		now = datetime. now()
 		time = str(now.day) +" "+ str(now.month) + " " + str(now.year)
-		with open("proxy_list","w+") as fp:
+		with open("data/proxy_list","w+") as fp:
 			fp.write(time)
 			fp.write(self.working_proxies)
 
