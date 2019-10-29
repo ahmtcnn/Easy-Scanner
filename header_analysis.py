@@ -87,7 +87,7 @@ class HeaderAnalysis():
 
 #response.info().getheader('cache-control') and (response.info().getheader('cache-control').startswith('private') or response.info().getheader('cache-control').startswith('no-cache')):
 
-h = HeaderAnalysis("https://twitter.com")
+h = HeaderAnalysis("https://bekchy.com")
 print(h.check_x_xss_protection())
 print(h.check_x_frame_options())
 print(h.check_x_content_type_options())

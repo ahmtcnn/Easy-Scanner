@@ -6,5 +6,8 @@ class XssScanner():
 		self.forms = []
 
 	def test_xss(self):
+		pass
 
+	def test_reflection(self):
+		
 
