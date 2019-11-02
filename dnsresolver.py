@@ -9,7 +9,15 @@
 
 import dns.resolver
 
-domain = 'ahmetcankaraagacli.com'
+domain = 'nintechnet.com'
 nameservers = dns.resolver.query(domain,'NS')
 for data in nameservers:
 	print (data)
+
+import requests
+
+response = requests.get("https://nintechnet.com")
+for i in response.headers:
+	print(i," : ",response.headers[i])
+print("\n")
+print(response.request.headers)

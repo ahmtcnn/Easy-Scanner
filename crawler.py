@@ -99,4 +99,4 @@ class Crawler():
 
 
 
-craw = Crawler("https://www.ahmetcankaraagacli.com")
+craw = Crawler("https://www.bekchy.com")
