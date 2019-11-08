@@ -3,45 +3,78 @@ from queue import Queue
 import threading
 from requests.exceptions import Timeout
 import dns.resolver
+from PyQt5 import QtCore
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
+import time
+from scapy.all import *
+import subprocess
 
 
-class SubdomainScanner:
-    def __init__(self,domain,tab,bar):
-        self.counter = 0
-        self.sub_counter = 10
-        self.num_lines = 0
-        self.tab = tab
-        self.bar = bar
-        self.tab.insertItem(self.counter, "started")
-        self.print_lock = threading.Lock()
-        self.domain = domain
-        self.q = Queue()
+class WorkerSignals(QObject):
+    
+    progress = pyqtSignal(float,str)
+    list     = pyqtSignal(str,int)
+
+class SubdomainScanner(QRunnable):
+
+    def __init__(self,target):
+        super(SubdomainScanner, self).__init__()
+        self.list_counter   = 0
+        self.sub_counter    = 0
+        self.wordlist_size  = 0
+        self.devnull        = open(os.devnull, 'w')
+        self.startTime      = time.time()
+        self.signals        = WorkerSignals()
+        #self.progress_bar   = progress_bar
+        #self.widget_list    = widget_list
+        self.print_lock     = threading.Lock()
+        self.target         = target
+        self.q              = Queue()
+    
+    
+    @pyqtSlot()
+    def run(self):
+        #self.widget_list.insertItem(self.list_counter, "started")
         self.start_threads()
         self.queue_subs()
         self.q.join()
-        self.counter +=1
-        self.tab.insertItem(self.counter, "Finished")
-    
-    def test_subdomain(self,sub):
-        self.sub_counter+=1
-        text = "[" + str(self.sub_counter) + " / " + str(self.num_lines) + "]"
-        self.bar.setFormat( text );
-        self.bar.setValue(self.sub_counter)
+        #self.widget_list.insertItem(self.list_counter+1, "Finished")
 
+
+    def test_subdomain(self,sub):
+
+        self.update_bar()
+        url = sub+"."+ self.target
         try:
-            url = sub+"."+ self.domain
-            ip_dns = dns.resolver.query(url,'A')
-            ip = [ip for ip in ip_dns]
-            with self.print_lock:
-                self.counter+=1
-                self.tab.insertItem(self.counter,url + " : " +str(ip))
+            cevap = subprocess.run(["ping","-c", "1",url],stdout=self.devnull, stderr=self.devnull)
+            if cevap.returncode == 0:
+                with self.print_lock:
+                    #print(url)
+                    self.signals.list.emit(url,self.list_counter)
+                    self.list_counter+=1
+                #self.widget_list.insertItem(self.list_counter,url + " : " +str(ip))
         except:
-            pass
+             #print("except")
+             pass
+
+
+          
+    def update_bar(self):
+        text = "[" + str(self.sub_counter) + " / " + str(self.wordlist_size) + "]"
+        progress_bar_value = (100*self.sub_counter)/(self.wordlist_size)
+        #self.progress_bar.setFormat(text);
+        #self.progress_bar.setValue(progress_bar_value)
+        self.signals.progress.emit(progress_bar_value,text)
+        self.sub_counter+=1
+
+
 
     def queue_subs(self):
-        self.num_lines = sum(1 for line in open('data/subdomainstest.dat'))
+        self.wordlist_size = sum(1 for line in open('data/subdomains.dat'))
 
-        with open("data/subdomainstest.dat","r") as fp:
+        with open("data/subdomains.dat","r") as fp:
             for line in fp:
                 line = line.rstrip("\n")
                 self.q.put(line)
@@ -53,7 +86,7 @@ class SubdomainScanner:
             self.q.task_done()
 
     def start_threads(self):
-        for _ in range(100):
+        for _ in range(2):
             t = threading.Thread(target = self.threader)
             t.daemon = True
             t.start()

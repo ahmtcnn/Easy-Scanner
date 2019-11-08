@@ -3,35 +3,51 @@ import threading
 import time
 from queue import Queue
 import socket
+from PyQt5 import QtCore
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
 
-from progress.bar import Bar
-from tqdm import tqdm
 
+class WorkerSignals(QObject):
+    
+    progress = pyqtSignal(float,str)
+    list  	 = pyqtSignal(str,int)
 
 
 """By setting them as daemon threads, we can let them run and forget about them, and when our program quits, any daemon threads are killed automatically."""
-class PortScanner():
-	def __init__(self):
+class PortScanner(QRunnable):
+	def __init__(self,target):
+		super(PortScanner, self).__init__()
+		#self.port_list = port_list
+		self.target = target
+		self.list_counter = 1
+		self.signals = WorkerSignals()
+
+	@pyqtSlot()
+	def run(self):
 		socket.setdefaulttimeout(0.25)
 		self.print_lock = threading.Lock()
-		self.target = '176.53.35.152'
-		self.progress = tqdm(total=65536)
+
+		self.bar_counter=1
+		
+		#self.port_list.insertItem(0,"Port\tService")
+
 		self.q = Queue()
 		self.startTime = time.time()
 		self.start_threads()
 		self.queue_ports()
 		self.q.join()
-		print('Time taken:', time.time() - self.startTime)
+		#print('Time taken:', time.time() - self.startTime)
 	
 	def start_threads(self):
-		for _ in range(150):
+		for _ in range(50):
 			t = threading.Thread(target = self.threader)
 			t.daemon = True
 			t.start()
 	
-	def queue_ports(self):
-		print("PORT\tSERVICE\tSTATE")	
-		for port in range(0, 65536):
+	def queue_ports(self):	
+		for port in range(0, 65000):
 			self.q.put(port)
 	
 	def threader(self):
@@ -42,19 +58,25 @@ class PortScanner():
 
 
 	def portscan(self,port):
+		text = "[" + str(self.bar_counter) + " / " + str(2000) + "]"
+		val = (100*self.bar_counter)/(2000)
+		self.signals.progress.emit(val,text)
+		self.bar_counter+=1
 		s = socket.socket(socket.AF_INET,  socket.SOCK_STREAM)
 		try:
 			con = s.connect((self.target, port))
+			try:
+				service = socket.getservbyport(port)
+			except:
+				service = "unknown"
 			with self.print_lock:
-				try:
-					service = socket.getservbyport(port)
-				except:
-					service = "unknown"
-				self.progress.write(f'{port}')
+				#self.port_list.insertItem(self.list_counter,str(port) + "\t" + str(service))
+				self.list_counter+=1
+				text = str(port) + "\t" + str(service)
+				self.signals.list.emit(text,list_counter)
+				print("geçti")
 				con.close()
-				self.progress.update(1)
 		except:
-			self.progress.update(1)
+			
+			pass
 
-
-scanner = PortScanner()

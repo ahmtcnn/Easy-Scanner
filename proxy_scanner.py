@@ -7,12 +7,12 @@ from datetime import datetime
 
 class ProxyScanner():
 	def __init__(self):
-		self.all_proxies = []
-		self.working_proxies = []
+		self.all_proxies		= []
+		self.working_proxies 	= []
 		if not self.read_file():
-			self.print_lock = threading.Lock()
-			self.q = Queue()
-			self.url = 'https://httpbin.org/ip'
+			self.print_lock 	= threading.Lock()
+			self.q 				= Queue()
+			self.url 			= 'https://httpbin.org/ip'
 			self.start_threads()
 			self.queue_proxies()
 			self.q.join()
@@ -21,6 +21,7 @@ class ProxyScanner():
 		else:
 			print("Updated Proxy File Detected. Using Proxy File.")
 			self.read_file()
+
 
 
 	def get_proxies(self):
@@ -71,7 +72,7 @@ class ProxyScanner():
 	def write_file(self):
 		now = datetime. now()
 		time = str(now.day) +" "+ str(now.month) + " " + str(now.year)
-		with open("proxy_list.txt","w+") as fp:
+		with open("data/proxy_list.txt","w+") as fp:
 			fp.write(time+"\n")
 			for proxy in self.working_proxies:
 				fp.write(proxy+"\n")

@@ -2,94 +2,103 @@ import requests
 import re
 from queue import Queue
 import threading
-from queue import Queue
 import random
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
 import time
 from proxy_scanner import ProxyScanner
+from PyQt5 import QtCore
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
 
-class DirScanner():
-	def __init__(self,url,tab,bar):
-		self.startTime = time.time()
-		self.num_lines = 0
-		self.bar = bar
-		self.tab = tab
-		self.counter = 0
-		self.dir_counter = 0
-		self.num_lines
-		self.tab.insertItem(self.counter,"Proxy Scan started..")
-		proxy_scanner = ProxyScanner()
-		self.proxies = proxy_scanner.return_proxies()
-		self.counter+=1
-		self.tab.insertItem(self.counter,"Proxy Scan Finished..Using "+str(len(self.proxies))+ "live proxy")
-		self.proxy_url ='http://free-proxy-list.net/'
-		self.session = requests.Session()
-		self.retry = Retry(connect=2, backoff_factor=0.3)
-		self.adapter = HTTPAdapter(max_retries=self.retry)
-		self.session.mount('http://', self.adapter)
-		self.session.mount('https://', self.adapter)
-		self.print_lock = threading.Lock()
-		self.headers = requests.utils.default_headers()
-		self.user_agents = []
+
+class WorkerSignals(QObject):
+    
+    progress = pyqtSignal(float,str)
+    list 	 = pyqtSignal(str,int)
+
+class DirScanner(QRunnable):
+	def __init__(self,target):
+		super(DirScanner, self).__init__()
+
+		self.startTime		= time.time()
+		self.wordlist_size 	= 0
+		self.list_counter 	= 0
+		self.dir_counter 	= 0
+		self.user_agents 	= []
+		#self.widget_list 	= widget_list
+		self.q 				= Queue()
+		self.target 		= target
+		self.print_lock 	= threading.Lock()
+		#self.progress_bar 	= progress_bar
+		self.signals 		= WorkerSignals()
+		self.session 		= requests.Session()
+		self.proxy_url 		= 'http://free-proxy-list.net/'
+		self.headers 		= requests.utils.default_headers()
+
+
+	@pyqtSlot()
+	def run(self):
+		print("started")
+		proxy_scanner 		= ProxyScanner()
+		self.proxies 		= proxy_scanner.return_proxies()
+		print("finished")
 		self.read_user_agent_file()
-		self.url = url
-		self.q = Queue()
-		self.queue_dirs()
 		self.start_threads()
+		self.queue_dirs()
 		self.q.join()
-		time = (time.time() - self.startTime)
-		self.tab.insertItem(self.counter,"Directory scan completed! Time taken: "+str(time))
-		print('Time taken:', time.time() - self.startTime)
 
 
 	def queue_dirs(self):
-		self.num_lines = sum(1 for line in open('data/directoriestest.dat'))
+		self.wordlist_size = sum(1 for line in open('data/directoriestest.dat'))
 		with open("data/directoriestest.dat","r") as fp:
 			for line in fp:
 				line = line.rstrip("\n")
 				self.q.put(line)
 
-	def get_proxies(self,proxies):
-		self.proxies = proxies
-
 	def test(self,word):
-		url = self.url + "/" + word
+		
+
+		url = self.target + "/" + word
 		try:
-			self.test_url(url,(2,4))
+			self.test_url(url)
 		except:
 			pass
+		self.update_progresbar()
+
+		
+
+	def update_progresbar(self):
 		self.dir_counter+=1
-		text = "[" + str(self.dir_counter) + " / " + str(self.num_lines) + "]"
-		self.bar.setFormat( text );
-		self.bar.setValue(self.dir_counter)
-
-	def test_url(self,url,timeout):
+		text = "[" + str(self.dir_counter) + " / " + str(self.wordlist_size) + "]"
+		progress_bar_value = (100*self.dir_counter)/(self.wordlist_size)
+		self.signals.progress.emit(progress_bar_value,text)
 
 
+	def test_url(self,url):
 		proxy = self.get_working_proxy(None)
 		agent = random.choice(self.user_agents)
 		header = self.headers.update(agent)
+		with self.print_lock:
+			print(url)
 		try:
-			response = self.session.get(url,proxies={"http": proxy, "https": proxy},headers=agent,timeout=timeout)
+			response = self.session.head(url,proxies={"http": proxy, "https": proxy},headers=agent)
 			if response.status_code == 200:
 				with self.print_lock:
-					self.counter+=1
-					self.tab.insertItem(self.counter,url + " : " +str(response.status_code))
+					self.list_counter+=1
+					self.signals.list.emit(url,self.list_counter)
 		except:
 			pass
-
 
 
 	def threader(self):
 		while True:
 			word = self.q.get()
-
 			self.test(word)
-			self.q.task_done()	
+			self.q.task_done()
+			print("test")
 
 	def start_threads(self):
-		for _ in range(5):
+		for _ in range(10):
 			t = threading.Thread(target = self.threader)
 			t.daemon = True
 			t.start()
@@ -103,7 +112,7 @@ class DirScanner():
 	def get_working_proxy(self,proxy):
 		if proxy == None:
 			proxy = random.choice(self.proxies)
-		url = 'http://google.com/'
+		url = 'https://google.com/'
 		try:
 			response = requests.get(self.proxy_url,proxies={"http": proxy, "https": proxy},timeout=5)
 			if response.status_code == 200:
@@ -112,11 +121,6 @@ class DirScanner():
 				return self.get_working_proxy(None)
 		except:
 			return self.get_working_proxy(None)
-
-	def test_agent(self):
-		proxy = random.choice(self.proxies)
-		agent = random.choice(self.user_agents)
-		print(agent)
 
 
 
