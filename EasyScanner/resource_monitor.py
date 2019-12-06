@@ -16,8 +16,7 @@ import os
 
 class WorkerSignals(QObject):
     
-    progress = pyqtSignal(float,str)
-    monitor 	 = pyqtSignal(float,float)
+    status 	 = pyqtSignal(float,float)
 
 
 class ResourceMonitor(QRunnable):
@@ -28,7 +27,6 @@ class ResourceMonitor(QRunnable):
 
 	@pyqtSlot()
 	def run(self):
-		# pid = self.get_pid()
 		self.watch_resources()
 
 	def watch_resources(self):
@@ -36,10 +34,10 @@ class ResourceMonitor(QRunnable):
 		while True:
 			#print("status: "+str(process.status()))
 			#print("cpu percent: "+str(process.cpu_percent(interval=2.0)))
-			cpu_usage = process.cpu_percent(interval=0.2)
+			cpu_usage = process.cpu_percent(interval=0.3)
 			mem_usage = process.memory_percent(memtype="rss")
 			mem_usage = "%.1f" % mem_usage
-			self.signals.monitor.emit(cpu_usage,float(mem_usage))
+			self.signals.status.emit(cpu_usage,float(mem_usage))
 			#print(self.pid)
 			#print(len(process.connections()))
 			#print(process.cpu_num())

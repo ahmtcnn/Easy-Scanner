@@ -9,7 +9,7 @@ Access-Control-Request-Headers
 Authorization
 Cache-Control
 Connection
-keep-alive
+Keep-Alive
 Content-Length
 Content-MD5
 Content-Type

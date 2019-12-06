@@ -18,49 +18,57 @@ import aiohttp
 
 
 async def download_site(session, url,signal):
-    async with session.get(url) as response:
-        if response.status == 200 and url in response.url: 
-        	print("URL: {0}\t\t\t Status {1}".format(url, response.status))
-        	signal.emit("URL: {0}\t\t\t Status {1}".format(url, response.status))
-        	return url
+	try:
+		async with session.get(url) as response:
+			if response.status == 200:# and url in response.url: 
+				print("URL: {0}\t\t\t Status {1}".format(url, response.status))
+				signal.emit("URL: {0}\t\t\t Status {1}".format(url, response.status))
+				return url
+	except Exception as s:
+		print(s)
 
 
 async def download_all_sites(sites,signal):
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        for url in list(sites):
-        	urli = url[0]
-        	#	print(urli)
-        	task = asyncio.ensure_future(download_site(session, urli,signal))
-        	#print(str(next(sites)))
-        	tasks.append(task)
-        await asyncio.gather(*tasks, return_exceptions=True)
+	async with aiohttp.ClientSession() as session:
+		tasks = []
+		for url in list(sites):
+			urli = url[0]
+			#	print(urli)
+			task = asyncio.ensure_future(download_site(session, urli,signal))
+			#print(str(next(sites)))
+			tasks.append(task)
+		await asyncio.gather(*tasks)
 
 
 
 class WorkerSignals(QObject):
-    
-    #progress = pyqtSignal(float,str)
-    dir_list 	 = pyqtSignal(str)
-    info_list = pyqtSignal(str)
+
+	result_list   = pyqtSignal(str)
+	finish_control = pyqtSignal()
+	info_box = pyqtSignal(str)
 
 class DirScanner(QRunnable):
 	def __init__(self,target):
 		super(DirScanner,self).__init__()
 		self.target = target
 		self.signals = WorkerSignals()
-		
-		self.sites =   ([urljoin(target,line.rstrip("\n"))] for line in open("data/directories.dat")) 
+		# info liste -> using a... wordlist file diye eklenecek
+		self.sites =   ([urljoin(target,line.rstrip("\n"))] for line in open("data/directories.dat"))
 
+		
 	@pyqtSlot()
 	def run(self):
-		self.signals.info_list.emit("[✔] Directory Scan Started")
+		print(self.sites)
+		start_time = time.time()
 		loop = asyncio.new_event_loop()
-		result = loop.run_until_complete(download_all_sites(self.sites,self.signals.dir_list))
-		self.signals.info_list.emit("[✔] Directory Scan Finished")
+		result = loop.run_until_complete(download_all_sites(self.sites,self.signals.result_list))
+		finish_time = time.time()
+		difference = finish_time - start_time
+		self.signals.info_box.emit("Time Taken " + str(difference) + '')
 
-
-
+		print(result)
+		self.signals.info_box.emit("[✔] Directory Scan Finished")
+		self.signals.finish_control.emit()
 
 
 

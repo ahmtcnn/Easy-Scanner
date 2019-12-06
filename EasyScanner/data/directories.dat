@@ -12,6 +12,8 @@
 privacy
 .addressbook
 .adm
+wp-admin
+cpanel
 .admin
 .adminer.php.swp
 .Administration
@@ -6096,6 +6098,10 @@ yonetim.php
 yum.log
 zabbix/
 zebra.conf
+wp-admin
+exercise1
+exercise2
+exercise3
 zehir.php
 zeroclipboard.swf
 zf_backend.php

@@ -10,7 +10,9 @@ from PyQt5.QtCore import *
 
 class WorkerSignals(QObject):
 
-    list 	 = pyqtSignal(int,str,bool)
+    result_list   = pyqtSignal(str)
+    finish_control = pyqtSignal()
+    info_box = pyqtSignal(str)
 
 class HeaderAnalysis(QRunnable):
 	def __init__(self,url):
@@ -39,6 +41,8 @@ class HeaderAnalysis(QRunnable):
 		self.check_x_permitted_Cross_Domain_Policies()
 		self.read_header_files()
 		self.check_uncommon_headers()
+		self.signals.finish_control.emit()
+		self.signals.info_box.emit("[+] Header Analysis finished!")
 
 	def get_headers(self):
 		try:
@@ -48,6 +52,9 @@ class HeaderAnalysis(QRunnable):
 		except:
 			pass
 
+	def write_result(self,text):
+		self.signals.result_list.emit(text)
+
 
 	def test_possible_vulnerabilities(self):
 		pass
@@ -56,17 +63,17 @@ class HeaderAnalysis(QRunnable):
 		if re.search("x-xss-protection",self.response_header_as_string,re.IGNORECASE):
 			if self.response_headers["x-xss-protection"].startswith('1; mode=block') or (self.response_headers["x-xss-protection"]).startswith('1;mode=block'):
 					text = "[+] (X-XSS-Protection) Cross-Site Scripting Protection is active"
-					self.signals.list.emit(self.counter,text,True)
+					self.write_result(text)
 					#self.list.item(self.counter).setForeground(QBrush(Qt.blue))
 					self.counter+=1
 			else:
 					text = "[-] (X-XSS-Protection) Server does not enabled Cross-Site Scripting Protection."
-					self.signals.list.emit(self.counter,text,False)
+					self.write_result(text)
 					#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 					self.counter+=1
 		else:
 			text = "[-] (X-XSS-Protection) Server does not enabled Cross-Site Scripting Protection."
-			self.signals.list.emit(self.counter,text,False)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 			self.counter+=1
 
@@ -74,12 +81,12 @@ class HeaderAnalysis(QRunnable):
 	def check_x_frame_options(self):
 		if re.search("x-frame-options",self.response_header_as_string,re.IGNORECASE) and (self.response_headers["x-frame-options"]).lower() in ['deny', 'sameorigin']:
 			text ="[+] (X-Frame-Options) Cross-Frame Scripting Scripting Protection is active."
-			self.signals.list.emit(self.counter,text,True)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.blue))
 			self.counter+=1
 		else:
 			text = "[-] (X-Frame-Options) Server did not enable Cross-Frame Scripting Protection."
-			self.signals.list.emit(self.counter,text,False)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 			self.counter+=1
 
@@ -87,12 +94,12 @@ class HeaderAnalysis(QRunnable):
 	def check_x_content_type_options(self):
 		if re.search("x-content-type-options",self.response_header_as_string,re.IGNORECASE) and self.response_headers["x-content-type-options"] == "nosniff":
 				text = "[+] (X-Content-Type-Options) MIME-Sniffing Protection is active."
-				self.signals.list.emit(self.counter,text,True)
+				self.write_result(text)
 				#self.list.item(self.counter).setForeground(QBrush(Qt.blue))
 				self.counter+=1
 		else:
 			text = "[-] (X-Content-Type-Options) Server did not enable MIME-Sniffing Protection."
-			self.signals.list.emit(self.counter,text,False)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 			self.counter+=1
 
@@ -100,36 +107,36 @@ class HeaderAnalysis(QRunnable):
 	def check_strict_transport_security(self):
 		if re.search("strict-transport-security",self.response_header_as_string,re.IGNORECASE):
 				text = "[+] (Strict-Transport-Security) HTTP over TLS/SSL is active."
-				self.signals.list.emit(self.counter,text,True)
+				self.write_result(text)
 				#self.list.item(self.counter).setForeground(QBrush(Qt.blue))
 				self.counter+=1
 		else:
 			text = "[-] (Strict-Transport-Security) Server did not enable HTTP over TLS/SSL requirement Protection."
-			self.signals.list.emit(self.counter,text,False)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 			self.counter+=1
 
 	def check_content_security_policy(self):
 		if re.search("content-security-policy",self.response_header_as_string,re.IGNORECASE):
 			text = "[+] (Content-Security-Policy) Content Security Policy is active."
-			self.signals.list.emit(self.counter,text,True)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.blue))
 			self.counter+=1
 		else:
 			text = "[-] (Content-Security-Policy) Server did not enable Content Security Policy Protection."
-			self.signals.list.emit(self.counter,text,False)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 			self.counter+=1
 
 	def check_x_content_security_policy(self):
 		if re.search("x-content-security-policy",self.response_header_as_string,re.IGNORECASE):
 				text = " (X-Content-Security-Policy) x-Content Security Policy is active."
-				self.signals.list.emit(self.counter,text,True)
+				self.write_result(text)
 				#self.list.item(self.counter).setForeground(QBrush(Qt.blue))
 				self.counter+=1
 		else:
 			text = "[-] (X-Content-Security-Policy) Server did not enable x-Content Security Policy Protection."
-			self.signals.list.emit(self.counter,text,False)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 			self.counter+=1
 
@@ -137,24 +144,24 @@ class HeaderAnalysis(QRunnable):
 	def check_access_control_allow_origin(self):
 		if re.search("access_control_allow_origin",self.response_header_as_string,re.IGNORECASE):
 			text = "[+] (Access-Control-Allow-Origin) Access Control Policies are active"
-			self.signals.list.emit(self.counter,text,True)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.blue))
 			self.counter+=1
 		else:
 			text = "[-] (Access-Control-Allow-Origin) Server did not enable Access Control Policies Protection."
-			self.signals.list.emit(self.counter,text,False)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 			self.counter+=1
 
 	def check_x_download_options(self):
 		if re.search("x-download-options",self.response_header_as_string,re.IGNORECASE) and self.response_headers["x-download-options"] == "noopen":
 			text = "[+] (X-Download-Options) File Download and Open Restriction Policies are active."
-			self.signals.list.emit(self.counter,text,True)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.blue))
 			self.counter+=1
 		else:
 			text = "[-] (X-Download-Options) Server did not enable File Download and Open Restriction Policies Protection."
-			self.signals.list.emit(self.counter,text,False)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 			self.counter+=1
 
@@ -162,30 +169,30 @@ class HeaderAnalysis(QRunnable):
 	def check_cache_control(self):
 		if re.search("cache-control",self.response_header_as_string,re.IGNORECASE) and (self.response_headers["cache-control"].startswith('private') or self.response_headers["cache-control"].startswith('no-cache')):
 			text = "[+] (Cache-control) Private Caching or No-Cache is active."
-			self.signals.list.emit(self.counter,text,True)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.blue))
 			self.counter+=1
 
 		else:
 			text = "[-] (Cache-control) Server did not enable Private Caching or No-Cache Protection."
-			self.signals.list.emit(self.counter,text,False)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 			self.counter+=1
 	def check_x_permitted_Cross_Domain_Policies(self):
 		if re.search("X-Permitted-Cross-Domain-Policies",self.response_header_as_string,re.IGNORECASE): 
 			if self.response_headers["X-Permitted-Cross-Domain-Policies"] == None or self.response_headers["X-Permitted-Cross-Domain-Policies"] == "master-only":
 				text = "[+] (X-Permitted-Cross-Domain-Policies) X-Permitted-Cross-Domain-Policies are active."
-				self.signals.list.emit(self.counter,text,True)
+				self.write_result(text)
 				#self.list.item(self.counter).setForeground(QBrush(Qt.blue))	
 				self.counter+=1
 			else:
 				text = "[-] X-Permitted-Cross-Domain-Policies) Server did not enable X-Permitted-Cross-Domain-PoliciesProtection."
-				self.signals.list.emit(self.counter,text,False)
+				self.write_result(text)
 				#self.list.item(self.counter).setForeground(QBrush(Qt.blue))
 				self.counter+=1
 		else:
 			text = "[-] X-Permitted-Cross-Domain-Policies) Server did not enable X-Permitted-Cross-Domain-PoliciesProtection."
-			self.signals.list.emit(self.counter,text,False)
+			self.write_result(text)
 			#self.list.item(self.counter).setForeground(QBrush(Qt.red))
 			self.counter+=1
 
@@ -194,7 +201,7 @@ class HeaderAnalysis(QRunnable):
 		for header in self.response_headers:
 			if not header in self.common_response_headers and not header in lowercase:
 				text = "[?] Uncommon header ! : "+ str(header) + " : " + str(self.response_headers[header])
-				self.signals.list.emit(self.counter,text,False)
+				self.write_result(text)
 				#self.list.item(self.counter).setForeground(QBrush(Qt.black))
 				self.counter+=1
 

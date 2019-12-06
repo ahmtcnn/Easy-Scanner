@@ -5,6 +5,8 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
+import time
+import socket
 
 
 async def check_port(target,port):
@@ -35,9 +37,9 @@ async def run(target):
 
 class WorkerSignals(QObject):
     
-    #progress = pyqtSignal(float,str)
-    port_list     = pyqtSignal(str)
-    info_list = pyqtSignal(str)
+    result_list     = pyqtSignal(str)
+    info_box        = pyqtSignal(str)
+    finish_control  = pyqtSignal()
 
 
 class PortScanner(QRunnable):
@@ -45,17 +47,21 @@ class PortScanner(QRunnable):
         super(PortScanner,self).__init__()
         self.target = target
         self.signals = WorkerSignals()
+        self.start_time = time.time()
 
 
     @pyqtSlot()
     def run(self):
-        start_text = "[✔] Port Scan Started"
         view = "Port\tService"
-        self.signals.port_list.emit(start_text)
-        self.signals.port_list.emit(view)
+        self.signals.result_list.emit(view)
         loop = asyncio.new_event_loop()
         self.result = loop.run_until_complete(run(self.target))
         self.print_result()
+        later = time.time()
+        time_taken = later - self.start_time
+        self.signals.info_box.emit("[✔] Port Scan finished!")
+        self.signals.info_box.emit("Time taken: %.2f seconds" % time_taken)
+        self.signals.finish_control.emit()
 
     def print_result(self):
 
@@ -65,11 +71,11 @@ class PortScanner(QRunnable):
                     service= socket.getservbyport(port)
                 except:
                     service = "unknown"
+                    print(port)
                 port_text = str(port)+"\t"+service
-                self.signals.port_list.emit(port_text)
+                self.signals.result_list.emit(port_text)
 
-        stop_text = "[✔] Port Scan Finished"
-        self.signals.port_list.emit(stop_text)
+
 
 
 
