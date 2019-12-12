@@ -14,7 +14,21 @@ This is my web scanner tool. It has several option to help you find some hints t
   
   
   
-  ![Screenshot 1 (Dirscanner )](http://ahmetcankaraagacli.com/scanner_images/dirscanner.png)
+  
+    
+  
+    
+    
+  
+  
+  
+  ![Screenshot 1 (Dirscanner )](http://ahmetcankaraagacli.com/scanner_images/dirscanner.png)  
+  
+   
+  ![Screenshot 1 (Dirscanner )](http://ahmetcankaraagacli.com/scanner_images/port_scanner.png)  
+ 
+ 
+  ![Screenshot 1 (Dirscanner )](http://ahmetcankaraagacli.com/scanner_images/info_gather.png)  
   
   
   
