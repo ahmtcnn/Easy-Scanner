@@ -14,6 +14,7 @@ class Crawler():
 		self.external_hrefs = []
 		self.forms_get = set()
 		self.forms_post = set()
+		self.form_urls = set() # Buradan devam et
 		self.srcs = set()
 		self.base = self.base_url
 		print("BASE: "+ self.base)
@@ -21,8 +22,13 @@ class Crawler():
 		#self.crawl()
 		self.login()
 		self.crawl()
-		#self.test_xss()
-		self.print_hrefs()
+		print("crawling finished")
+		#self.print_hrefs()
+		#self.print_post_forms()
+		#self.print_get_forms()
+
+	def return_results(self):
+		return self.internal_hrefs , self.forms_get, self.forms_post, self.session #
 
 
 	def preperation(self):
@@ -32,23 +38,21 @@ class Crawler():
 		self.headers['User-Agent'] = user_agent
 		self.session = requests.session()
 
-	def login(self):
-		response = self.session.get("http://127.0.0.1/login.php")
-		soup = BeautifulSoup(response.content,features="html.parser")
 
-		_token = soup.find("input",attrs={"name":"user_token"}).get("value")
-		print(_token)
+	#login bilgileri verilecek
+	def login(self):
+		response = self.session.get("http://testphp.vulnweb.com/login.php")
 		user = {
-			'username':'admin',
-			'password':'password',
-			'user_token':_token,
-			'Login':'Login',
+			'uname':'test',
+			'pass':'test',
+			#'Login':'Login'
+
 		}
-		response = self.session.post("http://127.0.0.1/login.php",data=user,headers=self.headers)
+		response = self.session.post("http://testphp.vulnweb.com/userinfo.php",data=user,headers=self.headers)
 		#print(response.content)
 		
 	def crawl(self):
-
+		print("crawler started")
 		for url in self.internal_hrefs:
 			try:
 				response = self.session.get(url,headers=self.headers)
@@ -66,11 +70,13 @@ class Crawler():
 						# print(mylink)
 						if "#" in mylink:
 							mylink = mylink.split("#")[0]
-						#print(mylink)
 						url = parse.urljoin(self.base,mylink)
+						#print(url)
 						if self.check_existence(url):
 							if self.base in url:
 								self.internal_hrefs.append(url)
+								#print(url)
+								#print(response.content)
 								self.get_forms(url)
 								#print(url)
 							else:
@@ -79,6 +85,7 @@ class Crawler():
 					pass
 			for img in imgs:
 				self.srcs.add(img['src'])
+		print("crawl finished")
 			
 
 	def check_existence(self,url):
@@ -96,9 +103,14 @@ class Crawler():
 		for i in self.internal_hrefs:
 			print(i)
 
-	def print_forms(self):
+	def print_post_forms(self):
 		print("POST FORMS")
 		for i in self.forms_post:
+			print(i)
+
+	def print_get_forms(self):
+		print("GET FORMS")
+		for i in self.forms_get:
 			print(i)
 
 
@@ -113,16 +125,34 @@ class Crawler():
 			print(key + " : " +response.request.headers[key])
 
 	def get_forms(self,url):
-		response = requests.get(url)
-		soup = BeautifulSoup(response.content,features="lxml")
+		response = self.session.get(url)
+
+		soup = BeautifulSoup(response.content,features="html.parser")
 		post_forms = soup.findAll("form",attrs={"method":"post"})
 		get_forms = soup.findAll("form",attrs={"method":"get"})
+		
+
+		for form in post_forms:
+			#print(url,"****",form)
+			#print("\n\n")
+			self.forms_post.add((url,form))
+			
+		for form in get_forms:
+			#print(form)
+			self.forms_get.add((url,form))
+
+		post_forms = soup.findAll("form",attrs={"method":"POST"})
+		get_forms = soup.findAll("form",attrs={"method":"GET"})
+		
 
 		for form in post_forms:
 			self.forms_post.add((url,form))
 			
 		for form in get_forms:
-			self.forms_get.add((url,form,action))
+			#print(form)
+			self.forms_get.add((url,form))
+
+
 
 	def is_redirection(self,href):
 		http_start_position = re.search(self.url,href)
@@ -144,4 +174,4 @@ class Crawler():
 
 
 
-craw = Crawler("http://127.0.0.1/")
+# craw = Crawler("http://testphp.vulnweb.com/")

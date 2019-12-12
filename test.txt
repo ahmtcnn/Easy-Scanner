@@ -1,0 +1,6 @@
+test
+test2
+test3
+
+#pip3 install --upgrade --force-reinstall PyQtChart
+

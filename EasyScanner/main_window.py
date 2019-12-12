@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QApplication, QWidget,QMainWindow,QProgressBar,QPush
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSlot,Qt
 import time
-from proxy_scanner import ProxyScanner
+#from proxy_scanner import ProxyScanner
 import threading
 from directory_scanner import DirScanner
 from multiprocessing import Process

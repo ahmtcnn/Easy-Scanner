@@ -2,15 +2,37 @@ import requests
 import dns.resolver
 import re
 from statistics import mode
+from urllib.parse import urlparse,urljoin
+
+
 class WafAnalysis():
 	def __init__(self,url):
 		self.url = url
+		parser = urlparse(url)
+		self.url_without_schema = parser.netloc
 		self.waf_list = []
 		self.waf_list_asString = ""
 		self.guess = []
 		self.read_file()
 		self.header_analysis_for_waf()
 		self.response_analyasis_for_waf()
+		self.name_server_analysis_for_waf()
+
+
+	def name_server_analysis_for_waf(self):
+		try:
+			nameservers = dns.resolver.query(self.url_without_schema,'NS')
+			
+			for data in nameservers:
+				try:
+					test = re.search(self.waf_list_asString,str(data),re.IGNORECASE)
+					if test:
+						self.guess.append((test.group(0)))
+						print(test.group(0),"*")
+				except:
+					print("exeption2")
+		except:
+			print("excepptt")
 
 
 	def header_analysis_for_waf(self):
@@ -52,7 +74,7 @@ class WafAnalysis():
 
 
 
-wafs = WafAnalysis("https://medium.com")
+wafs = WafAnalysis("https://bekchy.com")
 print(mode(wafs.guess))
 #search sonucu 4 ten buyuk olanlari cekcez
 

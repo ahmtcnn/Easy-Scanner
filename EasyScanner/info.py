@@ -149,13 +149,16 @@ class Info(QRunnable):
 
 
 	def find_http_method_with_trying(self):
-		text = "[✔] Testing http method manually for given url"
+		text = "[✔] Testing http method manually for given url..."
 		self.signals.result_list.emit(text)
 		methods = ['GET','POST','PUT','DELETE','OPTIONS','HEAD','CONNECT','TRACE','PATCH']
 		for method in methods:
-			response = requests.request(method=method,url=self.url)
-			if response.status_code != 405:
-				self.allowed_methods.add(method)
+			try:
+				response = requests.request(method=method,url=self.url,timeout=5)
+				if response.status_code != 405:
+					self.allowed_methods.add(method)
+			except:
+				pass
 
 	def find_http_method_with_options(self):
 		text = "\n[✔] Testing http methods with OPTION header.."
@@ -169,7 +172,7 @@ class Info(QRunnable):
 
 	def test_url(self,url):
 		try:
-			resp = requests.options(url)
+			resp = requests.options(url,timeout=4)
 			for i in resp.headers:
 				if i == "Allow":
 					print(i,resp.headers[i])
@@ -188,7 +191,6 @@ class Info(QRunnable):
 
 	def resolve_dns(self):
 		try:
-			#print(self.url_without_schema)
 			self.signals.result_list.emit("\n[✔] Trying to get nameservers ")
 			nameservers = dns.resolver.query(self.url_without_schema,'NS')
 			for data in nameservers:
