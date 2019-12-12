@@ -8,9 +8,9 @@ This is my web scanner tool. It has several option to help you find some hints t
   Port scanner  
   Header Scanner  
   Xss Scanner *Beta  
-  SQLi Scanner *Beta
-  File upload Scanner *not yet
-  Lfi/Rfi Scanner *not yet
+  SQLi Scanner *Beta  
+  File upload Scanner *not yet  
+  Lfi/Rfi Scanner *not yet  
   
   
   
