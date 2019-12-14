@@ -120,8 +120,61 @@
 #     print("ok")
 
 
-for i in range(10):
-    for j in range(10):
-        print(i,j)
-        if i == 2:
-            break
+# for i in range(10):
+#     for j in range(10):
+#         print(i,j)
+#         if i == 2:
+#             break
+
+# dic = None
+
+
+# dic['test'] = 10
+
+# print(dic)
+
+def login(session,headers):
+  response = session.get("http://testphp.vulnweb.com/login.php")
+  # soup = BeautifulSoup(response.content,features="html.parser")
+
+  # _token = soup.find("input",attrs={"name":"user_token"}).get("value")
+  # print(_token)
+  user = {
+      'uname':'test',
+      'pass':'test',
+      #'Login':'Login',
+  }
+  response = session.post("http://testphp.vulnweb.com/userinfo.php",data=user,headers=headers)
+  print(response.request.headers)
+
+
+import requests
+import re
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse
+from urllib import parse
+
+user_agent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; ru) Opera 8.01"
+headers        = requests.utils.default_headers()
+headers['User-Agent'] = user_agent
+
+session = requests.session()
+login(session,headers)
+url = "http://testphp.vulnweb.com/userinfo.php"
+base_url ="http://testphp.vulnweb.com"
+for i in range(100):
+    response = session.get(url)
+    print(response.request.headers)
+
+
+
+print(session)
+#soup.findAll('meta', name=re.compile("^description$", re.I))
+# import requests
+
+# response = requests.get("http://testphp.vulnweb.com")
+# forms = soup.findAll("form",attrs={"method":re.compile("POST", re.IGNORECASE)})
+# print(response)
+
+
+

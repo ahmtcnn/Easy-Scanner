@@ -5,6 +5,16 @@ from queue import Queue
 from urllib import parse
 import re
 from crawler import Crawler
+import time
+import asyncio
+from PyQt5 import QtGui
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
+from PyQt5 import QtCore
+from PyQt5.QtCore import Qt
+import time
+import socket
 
 ##login olması durumu sonra eklenecek
 
@@ -15,57 +25,63 @@ XSS_PAYLOAD_REGEX  = r"<script>alert\(1\)</script>"
 
 # her seferinde get ile url yi alıp öyle post atmak gerek kontrol et
 
-class XssScanner():
-	def __init__(self,url,href_list,get_forms,post_forms,session):
-		#self.session = session
+class WorkerSignals(QObject):
+    
+    result_list     = pyqtSignal(str)
+    info_box        = pyqtSignal(str)
+    finish_control  = pyqtSignal()
+
+
+class XssScanner(QRunnable):
+	def __init__(self,url,login_form):
+		super(XssScanner,self).__init__()
+		self.login_form      = login_form
+		self.session 		 = None
+		self.signals 		 = WorkerSignals()
 		self.url 			 = url
 		self.base 			 = self.base_url(url)
-		self.forms_get 		 = get_forms
-		self.forms_post 	 = post_forms
+		self.forms_get 		 = None
+		self.forms_post 	 = None
 		self.reflections 	 = set()
 		self.possible_filter = set()
 		self.possible_xss 	 = []
 		self.uniq_actions 	 = []
-		self.preperation()
 
-		self.login()
+		#self.login()
 		# self.crawler = Crawler(url)
 		# self.href_list, self.get_forms, self.post_forms 	= self.crawler.return_results()
 		
+
+		#self.print_hrefs()
+	@pyqtSlot()
+	def run(self):
+		start_time = time.time()
+		self.preperation()
 		self.test_reflections()
 		self.test_xss()
-		#self.print_hrefs()
-
-
-
+		finish_time = time.time()
+		difference = finish_time-start_time
+		self.signals.info_box.emit('[✔] Xss Scan Finished')
+		self.signals.info_box.emit('Time taken: '+str(difference))
+		self.signals.finish_control.emit()
+	
 
 
 	def preperation(self):
 		user_agent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; ru) Opera 8.01"
 		self.headers 		= requests.utils.default_headers()
 		self.headers['User-Agent'] = user_agent
-		self.session = requests.session()
+		self.signals.info_box.emit("\t[+] Crawler started!")
+		crawler 	= Crawler(self.url, self.login_form, quiet=True)
+		crawler.run()
+		self.href_list, self.forms_get, self.forms_post, self.session	= crawler.return_results()
+		self.signals.info_box.emit("\t[+] Crawler Finished!")
 
 
-	def login(self):
-		response = self.session.get("http://testphp.vulnweb.com/login.php")
-		# soup = BeautifulSoup(response.content,features="html.parser")
 
-		# _token = soup.find("input",attrs={"name":"user_token"}).get("value")
-		# print(_token)
-		user = {
-			'uname':'test',
-			'pass':'test',
-			#'Login':'Login',
-		}
-		response = self.session.post("http://testphp.vulnweb.com/userinfo.php",data=user,headers=self.headers)
-		#print(response.content)
 		
-
-
 	def create_form(self,_form,test_word):
 		url, form 		= _form
-		#print(form)
 		inputs 			= form.find_all("input")
 		text_areas 		= form.find_all('textarea')
 		action 			= form.get('action')
@@ -89,167 +105,71 @@ class XssScanner():
 
 		if action == "" or action == '#':
 			target = url
-			#print(target)
 		else:
 			target = parse.urljoin(self.base,action)
-			#print(target)
+
 
 		return url ,form_dictionary, target, form
 
 			
 	def test_reflections(self):
 
-		#response = self.session.get("http://192.168.1.106")
-		#print("get",response.content)
 		for form in self.forms_post:
 
 			url, form_dictionary, target, _form = self.create_form(form,NORMAL)
-			#print("target",target)
-			#print(form_dictionary)
 
 			response = self.session.post(target,data=form_dictionary,headers=self.headers)
-			#print(target)
-			#print(response.content)
-			#print(response.content)
+
 			if re.search(NORMAL,response.text,re.IGNORECASE):
 
 				if target not in self.uniq_actions:
 					self.uniq_actions.append(target)
 					self.reflections.add((url, _form))
-					print("Reflected -> ",target)
+					text = "Reflected -> "+str(target)
+					self.signals.result_list.emit(text)
 			else:
 				pass
 
 		for form in self.forms_get:
-			#print(form)
 			url, form_dictionary, target, _form = self.create_form(form,NORMAL)
-			#print(target)
 
 			response = self.session.get(target,params=form_dictionary,headers=self.headers)
-			#print(response.content)
+
 			if re.search(NORMAL,response.text,re.IGNORECASE):
 
 				if target not in self.uniq_actions:
 					self.uniq_actions.append(target)
 					self.reflections.add((url, _form))
-					print("Reflected -> ",target)
 			else:
 				pass
 
-		print("reflection scan finished")
 
 	def test_xss(self):
 		for form in self.reflections:
 			url, form_dictionary, target, form = self.create_form(form,XSS_PAYLOAD)
 			response = self.session.post(target,data=form_dictionary,headers=self.headers)
-			#print(response.content)
+
 
 			if re.search(XSS_PAYLOAD_REGEX,response.text,re.IGNORECASE):
-				#self.reflections.add((url,form,target))
-				print("Possible XSS -> ",target)
+				text = "Possible XSS -> "+str(target)
+				self.signals.result_list.emit(text)
 			else:
 				pass
-			
-		print("xss scan finished")
-
-
-	# def test_xss(self):
-	# 	for form,target in self.reflections:
-	# 		data_dict = {}
-
-	# 		TEST_WORD = "<script><alert(1)</script>"
-
-	# 		inputs = form.find_all("input")
-	# 		text_areas = form.find_all('textarea')
-
-
-	# 		for input in inputs:
-	# 			input_name=input.get('name')
-	# 			input_type=input.get('type')
-	# 			input_value=input.get('value')
-	# 			if input_type == "text":
-	# 				input_value = TEST_WORD
-	# 			data_dict[input_name] = input_value
-
-	# 		if text_areas:
-	# 			for area in text_areas:
-	# 				textarea_name = area.get('name')
-	# 				textarea_value = TEST_WORD
-	# 				data_dict[textarea_name] = textarea_value
-
-
-	# 		response = self.session.post(target,data=data_dict,headers=self.headers)
-
-	# 		if re.search(TEST_WORD,response.text,re.IGNORECASE):
-	# 				self.possible_xss.append((form,target))
-	# 		else:
-	# 			self.possible_filter.add((form,target))
-
-	# 	for form,target in self.possible_xss:
-	# 		print("possible xss -> ",form,target)
-
-
 
 
 	def base_url(self,url):
 		parsed = urlparse(url)
 		return parsed.scheme+"://"+parsed.netloc
 
-
-
 	# def print_forms(self):
-	# 	print("POST FORMS")
-	# 	for i in self.forms_post:
-	# 		print(i)
-
-
-	# def get_headers(self,url):
-	# 	response = requests.get(url)
-	# 	for key in response.headers:
-	# 		print(key + " : " +response.headers[key])
-
-	# 	print("************** RESPONSE *****************")
-
-	# 	for key in response.request.headers:
-	# 		print(key + " : " +response.request.headers[key])
-
-	# def get_forms(self):
-	# 	for url in self.internal_hrefs:
-
-	# 		response = requests.get(url)
-	# 		soup = BeautifulSoup(response.content,features="lxml")
-	# 		post_forms = soup.findAll("form",attrs={"method":"post"})
-	# 		get_forms = soup.findAll("form",attrs={"method":"get"})
-
-	# 		for form in post_forms:
-	# 			self.forms_post.add((url,form))
-				
-	# 		for form in get_forms:
-	# 			self.forms_get.add((url,form,action))
-
-	# def is_redirection(self,href):
-	# 	http_start_position = re.search(self.url,href)
-
-
-	# 	if http_start_position:
-	# 		return http_start_position.start() == 0
-	# 	else:
-	# 		return False
-			
-
-
-	#thread ile formlar alınacak
+	# 	for form in self.forms_post:
 
 
 
-		
+# crawler 	= Crawler("http://testphp.vulnweb.com/")
+# href_list,get_forms, post_forms, session	= crawler.return_results()
 
-
-
-crawler 	= Crawler("http://testphp.vulnweb.com/")
-href_list,get_forms, post_forms, session	= crawler.return_results()
-
-scanner 	= XssScanner("http://testphp.vulnweb.com/", href_list,get_forms,post_forms,session)
+# scanner 	= XssScanner("http://testphp.vulnweb.com/", href_list,get_forms,post_forms,session)
 
 
 

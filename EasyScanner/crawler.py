@@ -3,56 +3,174 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from queue import Queue
 from urllib import parse
+import asyncio
+from PyQt5 import QtGui
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
+from PyQt5 import QtCore
+from PyQt5.QtCore import Qt
+import time
+import socket
 import re
 
-##login olması durumu eklenecek
-#stack overflow oluyor dolayısıyla sadece form içeriklerini alabiliriz.
-class Crawler():
-	def __init__(self,url):
-		self.url = url
+
+#internal hrefs before and after login
+
+class WorkerSignals(QObject):
+    
+    result_list     = pyqtSignal(str)
+    info_box        = pyqtSignal(str)
+    finish_control  = pyqtSignal()
+
+
+class Crawler(QRunnable):
+	def __init__(self,url,login_form,quiet=False,form_scan=True):
+		super(Crawler,self).__init__()
+		print("crawler")
+		self.form_scan      = form_scan
+		self.quiet 			= quiet
+		self.login_form 	= login_form
+		self.url 			= url
 		self.internal_hrefs = []
 		self.external_hrefs = []
-		self.forms_get = set()
-		self.forms_post = set()
-		self.form_urls = set() # Buradan devam et
-		self.srcs = set()
-		self.base = self.base_url
-		print("BASE: "+ self.base)
+		self.forms_get 		= set()
+		self.forms_post 	= set()
+		self.form_urls 		= set()
+		self.srcs 			= set()
+		self.base 			= self.base_url
+		self.signals 		= WorkerSignals()
+		
+
+	@pyqtSlot()
+	def run(self):
+		print(self.login_form)
+		start_time = time.time()
 		self.preperation()
 		#self.crawl()
-		self.login()
+		if self.login_form != None:
+			print("login oldu")
+			self.login()
 		self.crawl()
-		print("crawling finished")
-		#self.print_hrefs()
-		#self.print_post_forms()
-		#self.print_get_forms()
+		self.get_forms_from_list()
+		finish_time = time.time()
+		difference = finish_time - start_time
+		self.signals.finish_control.emit()
+		self.signals.info_box.emit("[✔] Crawler Finished!")
+		self.signals.info_box.emit("Time Taken: "+str(difference))
+
+
 
 	def return_results(self):
-		return self.internal_hrefs , self.forms_get, self.forms_post, self.session #
+		return (self.internal_hrefs , self.forms_get, self.forms_post, self.session)
 
 
 	def preperation(self):
+		print("BASE: "+ self.base)
 		self.internal_hrefs.append(self.url)
 		user_agent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; ru) Opera 8.01"
 		self.headers 		= requests.utils.default_headers()
 		self.headers['User-Agent'] = user_agent
-		self.session = requests.session()
+		self.session 		= requests.session()
 
 
-	#login bilgileri verilecek
 	def login(self):
-		response = self.session.get("http://testphp.vulnweb.com/login.php")
-		user = {
-			'uname':'test',
-			'pass':'test',
-			#'Login':'Login'
 
-		}
-		response = self.session.post("http://testphp.vulnweb.com/userinfo.php",data=user,headers=self.headers)
-		#print(response.content)
-		
+		action 					= self.login_form['action']
+		form_url 				= self.login_form['url']
+
+		response = self.session.get(form_url,headers=self.headers)
+		soup = BeautifulSoup(response.content,features="html.parser")#,from_encoding="iso-8859-1"
+		forms = soup.findAll("form",attrs={"method":re.compile("POST", re.IGNORECASE)})
+
+		form = self.find_login_form(forms)
+
+		form_dictionary = self.create_login_form(form)
+
+		try:
+			response = self.session.post(action,data=form_dictionary,headers=self.headers)
+			# print(response.content,"\n\n")
+			response = self.session.get("http://testphp.vulnweb.com/userinfo.php")
+			print(response.content,"\n\n")
+		except Exception as e:
+			print("Error while login: ",e)
+
+	def find_login_form(self,forms):
+		action = self.login_form['action']
+		for form in forms:
+			form_action = form.get('action')
+			if form_action == "" or form_action == '#':
+				form_action = form_url
+			else:
+				form_action = parse.urljoin(self.url,form_action)
+
+
+			form_action = urlparse(form_action)
+			_action = urlparse(action)
+			if form_action.netloc == _action.netloc and form_action.path == _action.path:
+				return form
+
+
+
+	def create_login_form(self,form):
+		user_name_field 		= self.login_form['user_name_field']
+		user_value_field 		= self.login_form['user_value_field']
+		password_name_field 	= self.login_form['password_name_field']
+		password_value_field 	= self.login_form['password_value_field']
+		form_dictionary 		= {}
+		inputs 					= form.find_all("input")
+
+		for input in inputs:
+			input_name 		= input.get('name')
+			input_type		= input.get('type')
+			input_value 	= input.get('value')
+
+			if input_name == user_name_field: 
+				form_dictionary[input_name] = user_value_field
+			elif input_name == password_name_field:
+				form_dictionary[input_name] = password_value_field
+			else:
+				form_dictionary[input_name] = input_value
+
+		return form_dictionary
+
+
+	def create_form(self,form):
+			url, form 		= _form
+			#print(form)
+			inputs 			= form.find_all("input")
+			text_areas 		= form.find_all('textarea')
+			action 			= form.get('action')
+			form_dictionary = {}
+			target			= ""	
+
+			for input in inputs:
+				input_name 		= input.get('name')
+				input_type		= input.get('type')
+				input_value 	= input.get('value')
+
+				if input_type == "text": input_value = test_word
+
+				form_dictionary[input_name] = input_value
+
+			if text_areas:
+				for area in text_areas:
+					textarea_name 			 = area.get('name')
+					textarea_value 			 = test_word
+					form_dictionary[textarea_name] = textarea_value
+
+			if action == "" or action == '#':
+				target = url
+				#print(target)
+			else:
+				target = parse.urljoin(self.base,action)
+				#print(target)
+
+			return url ,form_dictionary, target, form
+
+
 	def crawl(self):
-		print("crawler started")
+		
 		for url in self.internal_hrefs:
 			try:
 				response = self.session.get(url,headers=self.headers)
@@ -62,31 +180,29 @@ class Crawler():
 
 			links = soup.find_all("a")
 			imgs = soup.find_all('img')
-			#print(links)
 			for link in links:
 				try:
 					if link["href"]:
 						mylink = link["href"]
-						# print(mylink)
 						if "#" in mylink:
 							mylink = mylink.split("#")[0]
 						url = parse.urljoin(self.base,mylink)
-						#print(url)
 						if self.check_existence(url):
 							if self.base in url:
 								self.internal_hrefs.append(url)
-								#print(url)
-								#print(response.content)
-								self.get_forms(url)
-								#print(url)
+								print(url)
+								if not self.quiet:
+									self.signals.result_list.emit(str(url))
+								# if self.form_scan:
+								# 	self.get_forms(url)
 							else:
 								self.external_hrefs.append(url)
 				except:
 					pass
 			for img in imgs:
 				self.srcs.add(img['src'])
-		print("crawl finished")
-			
+
+
 
 	def check_existence(self,url):
 		if url in self.internal_hrefs:
@@ -115,7 +231,7 @@ class Crawler():
 
 
 	def get_headers(self,url):
-		response = requests.get(url)
+		response = self.session.get(url,headers=self.headers)
 		for key in response.headers:
 			print(key + " : " +response.headers[key])
 
@@ -124,34 +240,36 @@ class Crawler():
 		for key in response.request.headers:
 			print(key + " : " +response.request.headers[key])
 
-	def get_forms(self,url):
-		response = self.session.get(url)
 
+	def get_forms_from_list(self):
+		self.login()
+		response = self.session.get("http://testphp.vulnweb.com/userinfo.php",headers=self.headers)
+		print(response.request.headers)
 		soup = BeautifulSoup(response.content,features="html.parser")
-		post_forms = soup.findAll("form",attrs={"method":"post"})
-		get_forms = soup.findAll("form",attrs={"method":"get"})
+		post_forms = soup.findAll("form",attrs={"method":re.compile("POST", re.IGNORECASE)})
 		
 
+		for url in self.internal_hrefs:
+			if not url == "http://testphp.vulnweb.com/logout.php":
+				self.get_forms(url)
+
+			
+
+
+	def get_forms(self,url):
+		response = self.session.get(url,headers=self.headers)
+		print("we are in crawler",response.request.headers)
+		soup = BeautifulSoup(response.content,features="html.parser")
+
+		post_forms = soup.findAll("form",attrs={"method":re.compile("POST", re.IGNORECASE)})
+		get_forms = soup.findAll("form",attrs={"method":re.compile("GET", re.IGNORECASE)})
+
+
 		for form in post_forms:
-			#print(url,"****",form)
-			#print("\n\n")
 			self.forms_post.add((url,form))
 			
 		for form in get_forms:
-			#print(form)
 			self.forms_get.add((url,form))
-
-		post_forms = soup.findAll("form",attrs={"method":"POST"})
-		get_forms = soup.findAll("form",attrs={"method":"GET"})
-		
-
-		for form in post_forms:
-			self.forms_post.add((url,form))
-			
-		for form in get_forms:
-			#print(form)
-			self.forms_get.add((url,form))
-
 
 
 	def is_redirection(self,href):

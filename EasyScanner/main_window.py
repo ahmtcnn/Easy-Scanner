@@ -27,7 +27,10 @@ from urllib.parse import urlparse,urljoin
 from subdomain_with_async import *
 #from subdomain_scanner import SubdomainScanner
 import threading
+from crawler import Crawler
+from xss_scaner import XssScanner
 import os
+from sql_scanner import SqliScanner
 
 
 # infodan veya herhangi bir clastan classmethod kullanarak eğer kullanıcı ayar verdiyse vs ona göre oluşturmak
@@ -46,21 +49,22 @@ class App(QMainWindow):
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
         self.statusBar.showMessage("Application waiting.")
-        mainMenu = self.menuBar()
+        menubar = self.menuBar()
 
 
-        self.window = Window(self.statusBar,mainMenu)
+        self.window = Window(self.statusBar,menubar)
         self.setCentralWidget(self.window)
         self.show()
 
 
 class Window(QWidget):
-    def __init__(self,statusBar,mainMenu):
+    def __init__(self,statusBar,menubar):
         super().__init__()
         self.statusbar = statusBar
-        self.menu = mainMenu
+        self.menubar = menubar
         self.url_without_schema =""
         self.url = ""
+        self.login_form = None
         self.threadpool = QThreadPool()
 
         self.init_ui()
@@ -87,6 +91,7 @@ class Window(QWidget):
             pass
         else:
             self.print_error("[×] URL format is not correct")
+
 
     def stop_on_click(self):
         self.disable_enable_options(False)
@@ -115,6 +120,7 @@ class Window(QWidget):
         option_list = {
 
             'Information Gather':self.start_information_gathering,
+            'Crawler':self.start_crawler,
             'Port Scanner':self.start_port_scanner,
             'Directory Scanner':self.start_directory_scanner,
             'Subdomain Scanner':self.start_subdomain_scanner,
@@ -135,7 +141,13 @@ class Window(QWidget):
         self.information_scanner.signals.info_box.connect(self.print_info)
         self.threadpool.start(self.information_scanner)
 
-
+    def start_crawler(self):
+        self.print_info("[✔] Crawler started!")
+        self.crawler = Crawler(self.url,self.login_form)
+        self.crawler.signals.result_list.connect(self.print_result)
+        self.crawler.signals.finish_control.connect(self.finish_control)
+        self.crawler.signals.info_box.connect(self.print_info)
+        self.threadpool.start(self.crawler)
     def start_port_scanner(self):
         self.print_info("[✔] Port Scanner started!")
         self.port_scanner = PortScanner(self.url_without_schema)
@@ -170,8 +182,20 @@ class Window(QWidget):
     def start_xss_scanner(self):
         self.print_info("[✔] XSS Scanner started!")
 
+        self.xss_scanner = XssScanner(self.url,self.login_form)
+        self.xss_scanner.signals.info_box.connect(self.print_info)
+        self.xss_scanner.signals.result_list.connect(self.print_result)
+        self.xss_scanner.signals.finish_control.connect(self.finish_control)
+        self.threadpool.start(self.xss_scanner)
+
+
     def start_sqli_scanner(self):
         self.print_info("[✔] SQLi Scanner started!")
+        self.sqli_scanner = SqliScanner(self.url,self.login_form)
+        self.sqli_scanner.signals.result_list.connect(self.print_result)
+        self.sqli_scanner.signals.info_box.connect(self.print_info)
+        self.sqli_scanner.signals.finish_control.connect(self.finish_control)
+        self.threadpool.start(self.sqli_scanner)
     def start_lfi_scanner(self):
         self.print_info("[✔] Lfi/Rfi Scanner started!")
 
@@ -189,10 +213,121 @@ class Window(QWidget):
         self.statusbar.showMessage(text)
 
     def set_menu(self):
-         settingsmenu = self.menu.addMenu('Settings')
-         exitmenu = self.menu.addMenu('Exit')
-         newAct = QAction('New', self)
-         settingsmenu   .addAction(newAct)
+        settingsmenu = self.menubar.addMenu('Settings')
+        settingsAct = QAction('Settings', self)
+        settingsAct.setShortcut("Ctrl+S")
+        settingsAct.setStatusTip('Set Scanner Settings')
+        settingsAct.triggered.connect(self.show_settings_window)
+
+        settingsmenu.addAction(settingsAct)
+
+        exitmenu = self.menubar.addMenu('Exit')
+        exitAct = QAction('Exit',self)
+        exitmenu.addAction(exitAct)
+
+    def set_login_settings(self):
+        user_input_name = self.form_input_name_user.text()
+        user_input_value = self.form_input_value_user.text()
+
+        password_input_name = self.form_input_name_password.text()
+        password_input_value  = self.form_input_value_password.text()
+
+        form_address = self.form_url_address_line.text()
+        form_action = self.form_action_url_line.text()
+
+        self.login_form = {}
+        self.login_form['user_name_field'] = user_input_name
+        self.login_form['user_value_field'] = user_input_value
+        self.login_form['password_name_field'] = password_input_name
+        self.login_form['password_value_field'] = password_input_value
+        self.login_form['url'] = form_address
+        self.login_form['action'] = form_action
+
+
+
+    def show_settings_window(self):
+        self.dlg = QDialog(self)
+        self.dlg.setFixedSize(400, 250)
+        self.dlg.setWindowTitle("Settings")
+
+        # Initialize tab screen
+        self.tabs = QTabWidget(self.dlg)
+        self.general_settings_tab = QWidget()
+        self.login_tab = QWidget()
+        self.tabs.resize(400,270)
+        
+        # Add tabs
+        self.tabs.addTab(self.general_settings_tab,"General Settings")
+        self.tabs.addTab(self.login_tab,"Login Settings")
+        
+        # Create first tab
+        self.general_settings_tab.layout = QVBoxLayout(self.dlg)
+        self.pushButton1 = QPushButton("PyQt5 button",self.general_settings_tab)
+
+        self.label_login_information = QLabel(self.login_tab)
+        self.label_login_information.setText('Login Form Informations')
+        self.label_login_information.move(10,10)
+
+        self.label_input_name_user = QLabel(self.login_tab)
+        self.label_input_name_user.setText('Input Name: ')
+        self.label_input_name_user.move(20,50)
+
+        self.label_input_name_password = QLabel(self.login_tab)
+        self.label_input_name_password.setText('Input Name: ')
+        self.label_input_name_password.move(20,80)
+
+
+        self.label_input_value_user = QLabel(self.login_tab)
+        self.label_input_value_user.setText('Input Value: ')
+        self.label_input_value_user.move(210,50)
+
+        self.label_input_value_password = QLabel(self.login_tab)
+        self.label_input_value_password.setText('Input Value: ')
+        self.label_input_value_password.move(210,80)
+
+        self.form_input_name_user = QLineEdit(self.login_tab)
+        self.form_input_name_user.resize(100,18)
+        self.form_input_name_user.move(100,50)
+
+        self.form_input_name_password = QLineEdit(self.login_tab)
+        self.form_input_name_password.resize(100,18)
+        self.form_input_name_password.move(100,80)
+
+        self.form_input_value_user = QLineEdit(self.login_tab)
+        self.form_input_value_user.resize(100,18)
+        self.form_input_value_user.move(285,50)
+
+        self.form_input_value_password = QLineEdit(self.login_tab)
+        self.form_input_value_password.resize(100,18)
+        self.form_input_value_password.move(285,80)
+
+
+        self.form_url_address_label = QLabel(self.login_tab)
+        self.form_url_address_label.setText("Form URL address : ")
+        self.form_url_address_label.move(20,120)
+
+
+        self.form_url_address_line = QLineEdit(self.login_tab)
+        self.form_url_address_line.resize(200,18)
+        self.form_url_address_line.move(138,120)
+
+
+        self.form_action_url_label = QLabel(self.login_tab)
+        self.form_action_url_label.setText("Form Action URL   : ")
+        self.form_action_url_label.move(20,150)
+
+
+        self.form_action_url_line = QLineEdit(self.login_tab)
+        self.form_action_url_line.resize(200,18)
+        self.form_action_url_line.move(138,150)
+
+        self.save_button = QPushButton('Save',self.login_tab)
+        self.save_button.move(280,180)
+        self.save_button.clicked.connect(self.set_login_settings)
+
+
+        self.dlg.exec_()
+
 
     @property
     def is_url_valid(self):
@@ -271,6 +406,7 @@ class Window(QWidget):
         option_list = [
 
             'Information Gather',
+            'Crawler',
             'Port Scanner',
             'Directory Scanner',
             'Subdomain Scanner',

@@ -220,7 +220,7 @@ class Info(QRunnable):
 		session = requests.session()
 		resp = session.get("https://viewdns.info/iphistory/?domain="+self.url_without_schema,headers=headers)
 		if 'try again' in resp.text:
-			self.signals.result_list.emit("[×] Couldn't get ip history ")
+			self.signals.result_list.emit("\t[×] Couldn't get ip history ")
 		soup = BeautifulSoup(resp.content, 'html.parser')
 		tables = soup.find_all("table")
 		tds = tables[3].find_all('td')

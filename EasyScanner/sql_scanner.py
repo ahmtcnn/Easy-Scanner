@@ -4,7 +4,13 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from urllib import parse
 import re
-import re
+from PyQt5 import QtGui
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
+from PyQt5 import QtCore
+from PyQt5.QtCore import Qt
+import time
 
 
 
@@ -19,20 +25,42 @@ DBMS_ERRORS = {                                                                 
     "Sybase": (r"(?i)Warning.*sybase.*", r"Sybase message", r"Sybase.*Server message.*"),
 }
 
-class SqliScanner:
-	def __init__(self,internal_hrefs,get_forms,post_forms, session):
-		self.internal_hrefs = internal_hrefs
-		self.base = "http://testphp.vulnweb.com/"  # bunu almalı
-		self.session = session
-		self.get_forms = get_forms
-		self.post_forms = post_forms
-		self.href_with_parameters = []
-		self.payloads = []
+class WorkerSignals(QObject):
+    
+    result_list     = pyqtSignal(str)
+    info_box        = pyqtSignal(str)
+    finish_control  = pyqtSignal()
+
+
+class SqliScanner(QRunnable):
+	def __init__(self,url,login_form):
+		super(SqliScanner,self).__init__()
+		self.internal_hrefs 	= None
+		self.url 				= url  # bunu almalı
+		self.session 			= None
+		self.get_forms 			= None
+		self.post_forms 		= None
+		self.parameterized_hrefs= []
+		self.payloads 			= []
+		self.login_form			= login_form
+		self.base 				= self.base_url
+		self.signals 			= WorkerSignals()
+		
+	@pyqtSlot()	
+	def run(self):
+		start_time  = time.time()
 		self.preperation()
 		self.get_parameterized_hrefs()
 		self.load_paylaods()
-		#self.url_based_search()
+		self.url_based_search()
 		self.forms_based_search()
+
+		finish_time = time.time()
+		difference = finish_time-start_time
+		self.signals.finish_control.emit()
+		self.signals.info_box.emit("[✔] SQLi Scan Finished")
+		self.signals.info_box.emit("Time taken: "+str(difference))
+		print("finished")
 
 
 
@@ -40,6 +68,11 @@ class SqliScanner:
 		user_agent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; ru) Opera 8.01"
 		self.headers 		= requests.utils.default_headers()
 		self.headers['User-Agent'] = user_agent
+		self.signals.info_box.emit("\t[+] Crawler started!")
+		crawler 	= Crawler(self.url, self.login_form, quiet=True)
+		crawler.run()
+		self.internal_hrefs, self.get_forms, self.post_forms, self.session	= crawler.return_results()
+		self.signals.info_box.emit("\t[+] Crawler Finished!")
 		#self.session = requests.session()
 
 
@@ -50,7 +83,7 @@ class SqliScanner:
 			try:
 				query = parsed.query
 				if query != "":
-					self.href_with_parameters.append(url)
+					self.parameterized_hrefs.append(url)
 			except:
 				pass
 
@@ -62,14 +95,17 @@ class SqliScanner:
 				self.payloads.append(payload)
 
 	def url_based_search(self):
-		for url in self.href_with_parameters:
+		for url in self.parameterized_hrefs:
 			for payload in self.payloads:
 				modified_url = self.modify_url(url,payload)
 				if self.test_url(modified_url):
 					break
 
 
-
+	@property
+	def base_url(self):
+		parsed = urlparse(self.url)
+		return parsed.scheme+"://"+parsed.netloc
 
 	# def print_payloads(self):
 	# 	print(self.payloads)
@@ -93,6 +129,7 @@ class SqliScanner:
 				if result != None:
 					print(url)
 					print("Possible SQL injection based on error")
+					self.signals.result_list.emit(str(url)+"Possible SQL injection based on error")
 					return True
 		return None
 
@@ -101,22 +138,21 @@ class SqliScanner:
 	def forms_based_search(self):
 		for _form in self.post_forms:
 			for payload in self.payloads:
-			
-				url, form = _form
-				#print(url)
-				url, form_dictionary, target, form = self.create_form(url,form,payload)
-
-				# self.create_form(form,payload)
 				try:
-					response = self.session.post(target,data=form_dictionary,headers=self.headers)
-					if url == "http://testphp.vulnweb.com/userinfo.php":
-						print(form_dictionary)
-						print(target)
-						print(response.content)
-				except:
-					print("Connection error with url:",target)
-				if self.search_string(response.text,str(url)+"(form_based)"):
-					break
+					url, form = _form
+					#print(url)
+					url, form_dictionary, target, form = self.create_form(url,form,payload)
+
+					# self.create_form(form,payload)
+					try:
+						response = self.session.post(target,data=form_dictionary,headers=self.headers)
+
+					except:
+						print("Connection error with url:",target)
+					if self.search_string(response.text,str(url)+"(form_based)"):
+						break
+				except Exception as e:
+					print(e)
 
 	def create_form(self,url,form,payload):
 		inputs 			= form.find_all("input")
@@ -143,13 +179,13 @@ class SqliScanner:
 		return url ,form_dictionary, target, form
 
 
-crawler = Crawler("http://testphp.vulnweb.com/")
-href_list,get_forms, post_forms, session 	= crawler.return_results()
+# crawler = Crawler("http://testphp.vulnweb.com/")
+# href_list,get_forms, post_forms, session 	= crawler.return_results()
 
-# for i in post_forms:
-# 	url, form = i
-sqli_scanner = SqliScanner(href_list,get_forms, post_forms, session)
-#print(sqli_scanner.href_with_parameters)
+# # for i in post_forms:
+# # 	url, form = i
+# sqli_scanner = SqliScanner(href_list,get_forms, post_forms, session)
+# #print(sqli_scanner.href_with_parameters)
 
 
 # url ="http://ahmetcan.com/path?h=1&c=19"
