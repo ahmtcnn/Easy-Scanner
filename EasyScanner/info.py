@@ -16,6 +16,7 @@ from builtwith import *
 import time
 import dns.resolver
 from bs4 import BeautifulSoup
+from waf_analysis import WafAnalysis
 
 
 # allowed methoduna exception koyulacak
@@ -56,7 +57,9 @@ class Info(QRunnable):
 		self.resolve_dns()
 		self.check_wayback_machine()
 		self.get_ip_history()
+		self.analyze_waf()
 		self.get_whois()
+
 		later = time.time()
 		time_taken = later - self.start_time
 
@@ -81,7 +84,7 @@ class Info(QRunnable):
 		try:
 
 			ip = socket.gethostbyname(self.url_without_schema)
-			print(ip)
+			#print(ip)
 			self.signals.result_list.emit("\n[✔] Ip Address Resolved:")
 			self.signals.result_list.emit("\t[+] " +ip)
 			self.ip = ip
@@ -140,7 +143,7 @@ class Info(QRunnable):
 		else:
 			text = "\n[✔] Some Web Technologies Determined"
 		self.signals.result_list.emit(text)
-		print(response)
+		#print(response)
 		for key in response:
 			text = "\t[+] " + str(key) + " : " + str(response[key][0])
 			#print(text)
@@ -240,6 +243,14 @@ class Info(QRunnable):
 		else:
 			text = "Couldn't get whois info"
 			self.signals.result_list.emit("\t[-] "+text)
+
+
+	def analyze_waf(self):
+		self.signals.result_list.emit("\n[✔] Trying to get Waf/Backend Systems")
+		waf_analysis = WafAnalysis(self.url)
+		guess = waf_analysis.return_result()
+		self.signals.result_list.emit("\t[+] "+str(guess))
+		
 
 
 	def __del__(self):

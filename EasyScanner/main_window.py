@@ -31,6 +31,7 @@ from crawler import Crawler
 from xss_scaner import XssScanner
 import os
 from sql_scanner import SqliScanner
+from file_inclusion_scanner import FileInclusionScanner
 
 
 # infodan veya herhangi bir clastan classmethod kullanarak eğer kullanıcı ayar verdiyse vs ona göre oluşturmak
@@ -60,9 +61,9 @@ class App(QMainWindow):
 class Window(QWidget):
     def __init__(self,statusBar,menubar):
         super().__init__()
-        self.statusbar = statusBar
-        self.menubar = menubar
-        self.url_without_schema =""
+        self.statusbar  = statusBar
+        self.menubar    = menubar
+        self.url_without_schema = ""
         self.url = ""
         self.login_form = None
         self.threadpool = QThreadPool()
@@ -197,8 +198,12 @@ class Window(QWidget):
         self.sqli_scanner.signals.finish_control.connect(self.finish_control)
         self.threadpool.start(self.sqli_scanner)
     def start_lfi_scanner(self):
-        self.print_info("[✔] Lfi/Rfi Scanner started!")
-
+        self.print_info("[✔] File Inclusion Scanner started!")
+        self.file_inclusion_Scanner = FileInclusionScanner(self.url,self.login_form)
+        self.file_inclusion_Scanner.signals.result_list.connect(self.print_result)
+        self.file_inclusion_Scanner.signals.info_box.connect(self.print_info)
+        self.file_inclusion_Scanner.signals.finish_control.connect(self.finish_control)
+        self.threadpool.start(self.file_inclusion_Scanner)
     def start_fileupload_scanner(self):
         self.print_info("[✔] File Upload Scanner started!")
 

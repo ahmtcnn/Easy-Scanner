@@ -15,6 +15,8 @@ import socket
 import re
 
 
+REGEX_FOR_LOGOUT = ".*(logout).*"
+
 #internal hrefs before and after login
 
 class WorkerSignals(QObject):
@@ -27,7 +29,7 @@ class WorkerSignals(QObject):
 class Crawler(QRunnable):
 	def __init__(self,url,login_form,quiet=False,form_scan=True):
 		super(Crawler,self).__init__()
-		print("crawler")
+		print("crawler started")
 		self.form_scan      = form_scan
 		self.quiet 			= quiet
 		self.login_form 	= login_form
@@ -80,18 +82,20 @@ class Crawler(QRunnable):
 		form_url 				= self.login_form['url']
 
 		response = self.session.get(form_url,headers=self.headers)
-		soup = BeautifulSoup(response.content,features="html.parser")#,from_encoding="iso-8859-1"
+		soup = BeautifulSoup(response.content,features="html.parser",from_encoding="iso-8859-1")#,from_encoding="iso-8859-1"
 		forms = soup.findAll("form",attrs={"method":re.compile("POST", re.IGNORECASE)})
-
+		# if len(forms) == 1:
+		# 	form = forms[0]
+		# else:
 		form = self.find_login_form(forms)
+
+		# print(form)
 
 		form_dictionary = self.create_login_form(form)
 
 		try:
 			response = self.session.post(action,data=form_dictionary,headers=self.headers)
-			# print(response.content,"\n\n")
-			response = self.session.get("http://testphp.vulnweb.com/userinfo.php")
-			print(response.content,"\n\n")
+
 		except Exception as e:
 			print("Error while login: ",e)
 
@@ -242,28 +246,28 @@ class Crawler(QRunnable):
 
 
 	def get_forms_from_list(self):
-		self.login()
-		response = self.session.get("http://testphp.vulnweb.com/userinfo.php",headers=self.headers)
-		print(response.request.headers)
-		soup = BeautifulSoup(response.content,features="html.parser")
-		post_forms = soup.findAll("form",attrs={"method":re.compile("POST", re.IGNORECASE)})
+		if self.login_form != None:
+			print("login oldu")
+			self.login()
 		
-
 		for url in self.internal_hrefs:
-			if not url == "http://testphp.vulnweb.com/logout.php":
+			if not re.search(REGEX_FOR_LOGOUT,url):
 				self.get_forms(url)
+			else:
+				print("test ",url)
 
 			
 
 
 	def get_forms(self,url):
 		response = self.session.get(url,headers=self.headers)
-		print("we are in crawler",response.request.headers)
-		soup = BeautifulSoup(response.content,features="html.parser")
+
+		soup = BeautifulSoup(response.content,features="html.parser",from_encoding="iso-8859-1")
 
 		post_forms = soup.findAll("form",attrs={"method":re.compile("POST", re.IGNORECASE)})
 		get_forms = soup.findAll("form",attrs={"method":re.compile("GET", re.IGNORECASE)})
-
+		if url == "http://192.168.1.101/vulnerabilities/upload/":
+			print("*****",post_forms)
 
 		for form in post_forms:
 			self.forms_post.add((url,form))
@@ -281,15 +285,3 @@ class Crawler(QRunnable):
 		else:
 			return False
 			
-
-
-	#thread ile formlar alınacak
-
-
-
-		
-
-
-
-
-# craw = Crawler("http://testphp.vulnweb.com/")
