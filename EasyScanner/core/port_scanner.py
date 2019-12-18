@@ -1,12 +1,8 @@
+from PyQt5.QtCore import QRunnable,QObject,pyqtSignal,pyqtSlot
 import asyncio
-from PyQt5 import QtGui
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5 import QtCore
-from PyQt5.QtCore import Qt
-import time
 import socket
+import time
+
 
 
 async def check_port(target,port):
@@ -52,8 +48,8 @@ class PortScanner(QRunnable):
 
     @pyqtSlot()
     def run(self):
-        view = "Port\tService"
-        self.signals.result_list.emit(view)
+        info = "Port\tService"
+        self.signals.result_list.emit(info)
         loop = asyncio.new_event_loop()
         self.result = loop.run_until_complete(run(self.target))
         self.print_result()

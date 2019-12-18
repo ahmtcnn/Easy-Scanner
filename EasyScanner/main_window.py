@@ -1,16 +1,18 @@
 import sys
+sys.path.append('./core/')
+sys.path.append('./core/helpers')
 from PyQt5.QtWidgets import QApplication, QWidget,QMainWindow,QProgressBar,QPushButton,QCheckBox,QHeaderView,QAbstractScrollArea,QMessageBox,QAction,QTableWidgetItem,QTableWidget, QLineEdit, QMessageBox,QGroupBox,QVBoxLayout,QMenuBar,QTabWidget,QLabel,QHBoxLayout,QFrame,QSplitter,QStyleFactory,QListWidget
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSlot,Qt
 import time
 #from proxy_scanner import ProxyScanner
 import threading
-from directory_scanner import DirScanner
+#from directory_scanner import DirScanner
 from multiprocessing import Process
-from header_analysis import HeaderAnalysis
-from port_scanner import *
-from getwhois import Whois
-from info import Info
+#from header_analysis import HeaderAnalysis
+#from port_scanner import *
+#from getwhois import Whois
+#from info import Info
 import psutil
 from PyQt5 import QtGui
 from PyQt5.QtGui import *
@@ -20,18 +22,40 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 import psutil
 import time
-from resource_monitor import ResourceMonitor
+#from resource_monitor import ResourceMonitor
 import validators
-from test_round import QRoundProgressBar
+#from test_round import QRoundProgressBar
 from urllib.parse import urlparse,urljoin
-from subdomain_with_async import *
+#from subdomain_with_async import *
 #from subdomain_scanner import SubdomainScanner
 import threading
-from crawler import Crawler
-from xss_scaner import XssScanner
+#from crawler import Crawler
+#from xss_scaner import XssScanner
 import os
-from sql_scanner import SqliScanner
-from file_inclusion_scanner import FileInclusionScanner
+#from sql_scanner import SqliScanner
+#from file_inclusion_scanner import FileInclusionScanner
+
+from core.file_inclusion_scanner import FileInclusionScanner
+from core.information_collector import InfoCollector
+from core.subdomain_scanner import SubdomainScanner
+from core.resource_monitor import ResourceMonitor
+from core.header_analyzer import HeaderAnalyzer
+from core.directory_scanner import DirScanner
+from core.port_scanner import PortScanner
+from core.sqli_scanner import SqliScanner
+from core.xss_scaner import XssScanner
+from core.crawler import Crawler
+
+
+
+
+
+
+
+
+
+
+
 
 
 # infodan veya herhangi bir clastan classmethod kullanarak eğer kullanıcı ayar verdiyse vs ona göre oluşturmak
@@ -136,7 +160,7 @@ class Window(QWidget):
 
     def start_information_gathering(self):
         self.print_info("[✔] Information Gathering started!")
-        self.information_scanner = Info(self.url)
+        self.information_scanner = InfoCollector(self.url)
         self.information_scanner.signals.result_list.connect(self.print_result)
         self.information_scanner.signals.finish_control.connect(self.finish_control)
         self.information_scanner.signals.info_box.connect(self.print_info)
@@ -175,7 +199,7 @@ class Window(QWidget):
 
     def start_header_scanner(self):
         self.print_info("[✔] Header Scanner started!")
-        self.header_analysis = HeaderAnalysis(self.url)
+        self.header_analysis = HeaderAnalyzer(self.url)
         self.header_analysis.signals.result_list.connect(self.print_result)
         self.header_analysis.signals.finish_control.connect(self.finish_control)
         self.header_analysis.signals.info_box.connect(self.print_info)

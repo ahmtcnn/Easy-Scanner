@@ -1,1 +1,4 @@
 waf analysis info bölümüne eklenecek
+
+#response = subprocess.run(["ping", "-c", "1", "ahmetcankaraagacli.com", "|", "awk", "'NR==1{gsub(/\(|\)/,"",$3);print $3}'"])
+#print(response)

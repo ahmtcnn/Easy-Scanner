@@ -197,10 +197,32 @@
 #     print("var")
 # print(test)
 
-from test2 import Test
+# from test2 import Test
 
-a = Test()
-print(a.b)
-print(ABD)
+# a = Test()
+# print(a.b)
+# print(ABD)
+# from core.crawler import Crawler
+
+# crawler = Crawler()
+# import requests
+
+# resp = requests.request('GET','http://ahmetcankaraagacli.com')
+# print(resp.status_code)
+
+import socket 
+
+connection = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+
+test = connection.connect(('176.53.35.152',21))
+connection.send(("hello").encode("utf8"))
+test = connection.recv(1024)
+print(test)
+# resp = connection.recv(1024)
+# print(resp)
+
+
+
+
 
 

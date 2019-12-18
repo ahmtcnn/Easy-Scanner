@@ -14,7 +14,7 @@ class WorkerSignals(QObject):
     finish_control = pyqtSignal()
     info_box = pyqtSignal(str)
 
-class HeaderAnalysis(QRunnable):
+class HeaderAnalyzer(QRunnable):
 	def __init__(self,url):
 		super(HeaderAnalysis, self).__init__()
 		self.url = url
